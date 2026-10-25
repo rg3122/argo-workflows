@@ -27,49 +27,6 @@ func TestStepsFailedRetries(t *testing.T) {
 	assert.Equal(t, wfv1.WorkflowFailed, woc.wf.Status.Phase)
 }
 
-var artifactResolutionWhenSkipped = `
-apiVersion: argoproj.io/v1alpha1
-kind: Workflow
-metadata:
-  generateName: conditional-artifact-passing-
-spec:
-  entrypoint: artifact-example
-  templates:
-  - name: artifact-example
-    steps:
-    - - name: generate-artifact
-        template: whalesay
-        when: "false"
-    - - name: consume-artifact
-        template: print-message
-        when: "false"
-        arguments:
-          artifacts:
-          - name: message
-            from: "{{steps.generate-artifact.outputs.artifacts.hello-art}}"
-
-  - name: whalesay
-    container:
-      image: docker/whalesay:latest
-      command: [sh, -c]
-      args: ["sleep 1; cowsay hello world | tee /tmp/hello_world.txt"]
-    outputs:
-      artifacts:
-      - name: hello-art
-        path: /tmp/hello_world.txt
-
-  - name: print-message
-    inputs:
-      artifacts:
-      - name: message
-        path: /tmp/message
-    container:
-      image: alpine:3.23
-      command: [sh, -c]
-      args: ["cat /tmp/message"]
-
-`
-
 // Tests ability to reference workflow parameters from within top level spec fields (e.g. spec.volumes)
 func TestArtifactResolutionWhenSkipped(t *testing.T) {
 	ctx := logging.TestContext(t.Context())
@@ -77,7 +34,7 @@ func TestArtifactResolutionWhenSkipped(t *testing.T) {
 	defer cancel()
 	wfcset := controller.wfclientset.ArgoprojV1alpha1().Workflows("")
 
-	wf := wfv1.MustUnmarshalWorkflow(artifactResolutionWhenSkipped)
+	wf := wfv1.MustUnmarshalWorkflow("@testdata/steps-artifact-resolution-when-skipped.yaml")
 	wf, err := wfcset.Create(ctx, wf, metav1.CreateOptions{})
 	require.NoError(t, err)
 	woc := newWorkflowOperationCtx(ctx, wf, controller)
